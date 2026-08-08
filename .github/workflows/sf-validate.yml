@@ -18,8 +18,12 @@ jobs:
       - name: Install Salesforce CLI
         run: npm install --global @salesforce/cli
 
+      # Use base64 secret so PEM newlines are never broken in GitHub Secrets
       - name: Write JWT key file
-        run: echo "${{ secrets.SF_JWT_KEY }}" > server.key
+        run: |
+          echo "${{ secrets.SF_JWT_KEY_BASE64 }}" | base64 -d > server.key
+          # quick sanity check (does not print key contents)
+          head -n 1 server.key | grep -q "BEGIN"
 
       - name: Authenticate to Salesforce (JWT)
         run: |

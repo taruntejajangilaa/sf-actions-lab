@@ -18,12 +18,33 @@ jobs:
       - name: Install Salesforce CLI
         run: npm install --global @salesforce/cli
 
-      # Use base64 secret so PEM newlines are never broken in GitHub Secrets
-      - name: Write JWT key file
+      - name: Write JWT private key from base64 secret
+        env:
+          SF_JWT_KEY_BASE64: ${{ secrets.SF_JWT_KEY_BASE64 }}
         run: |
-          echo "${{ secrets.SF_JWT_KEY_BASE64 }}" | base64 -d > server.key
-          # quick sanity check (does not print key contents)
-          head -n 1 server.key | grep -q "BEGIN"
+          if [ -z "$SF_JWT_KEY_BASE64" ]; then
+            echo "ERROR: Secret SF_JWT_KEY_BASE64 is empty or missing."
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import base64, os, sys
+          raw = os.environ["SF_JWT_KEY_BASE64"].strip().replace("\n", "").replace("\r", "")
+          try:
+              data = base64.b64decode(raw, validate=False)
+          except Exception as e:
+              print("ERROR: SF_JWT_KEY_BASE64 is not valid base64:", e)
+              sys.exit(1)
+          open("server.key", "wb").write(data)
+          text = data.decode("utf-8", errors="replace")
+          first = text.splitlines()[0] if text.splitlines() else ""
+          print("key_file_bytes=", len(data))
+          print("key_first_line=", first)
+          if "PRIVATE KEY" not in first:
+              print("ERROR: Decoded file is not a private key.")
+              print("Make sure you base64-encoded .secrets/server.key (NOT server.crt).")
+              sys.exit(1)
+          PY
 
       - name: Authenticate to Salesforce (JWT)
         run: |

@@ -62,7 +62,8 @@ jobs:
             --source-dir force-app \
             --dry-run \
             --test-level RunSpecifiedTests \
-            --tests HelloActionsTest,LabDemoTest \
+            --tests HelloActionsTest \
+            --tests LabDemoTest \
             --wait 60
 
       - name: Cleanup key file

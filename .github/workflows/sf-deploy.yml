@@ -1,4 +1,4 @@
-name: Salesforce Deploy to Master
+name: Salesforce Deploy
 
 on:
   workflow_dispatch:   # manual trigger for controlled deploy

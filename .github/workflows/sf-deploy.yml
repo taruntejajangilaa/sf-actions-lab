@@ -1,12 +1,13 @@
+# Lab 07: Controlled Salesforce deploy (manual)
 name: Salesforce Deploy
 
 on:
-  workflow_dispatch:   # manual trigger for controlled deploy
-  # optional later: push to master
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: practice
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -14,8 +15,34 @@ jobs:
       - name: Install Salesforce CLI
         run: npm install --global @salesforce/cli
 
-      - name: Write JWT key file
-        run: echo "${{ secrets.SF_JWT_KEY }}" > server.key
+      - name: Write JWT private key from base64 secret
+        env:
+          SF_JWT_KEY_BASE64: ${{ secrets.SF_JWT_KEY_BASE64 }}
+        run: |
+          if [ -z "$SF_JWT_KEY_BASE64" ]; then
+            echo "ERROR: Secret SF_JWT_KEY_BASE64 is empty or missing."
+            echo "Add it in GitHub → Settings → Secrets and variables → Actions"
+            exit 1
+          fi
+
+          python3 - <<'PY'
+          import base64, os, sys
+          raw = os.environ["SF_JWT_KEY_BASE64"].strip().replace("\n", "").replace("\r", "")
+          try:
+              data = base64.b64decode(raw, validate=False)
+          except Exception as e:
+              print("ERROR: SF_JWT_KEY_BASE64 is not valid base64:", e)
+              sys.exit(1)
+          open("server.key", "wb").write(data)
+          text = data.decode("utf-8", errors="replace")
+          first = text.splitlines()[0] if text.splitlines() else ""
+          print("key_file_bytes=", len(data))
+          print("key_first_line=", first)
+          if "PRIVATE KEY" not in first:
+              print("ERROR: Decoded file is not a private key.")
+              print("Encode .secrets/server.key (NOT server.crt).")
+              sys.exit(1)
+          PY
 
       - name: Authenticate to Salesforce (JWT)
         run: |
@@ -33,6 +60,7 @@ jobs:
             --source-dir force-app \
             --test-level RunSpecifiedTests \
             --tests HelloActionsTest \
+            --tests LabDemoTest \
             --wait 60
 
       - name: Cleanup key file

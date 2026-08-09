@@ -63,6 +63,7 @@ jobs:
             --dry-run \
             --test-level RunSpecifiedTests \
             --tests HelloActionsTest \
+            --tests LabDemoTest \
             --wait 60
 
       - name: Cleanup key file
